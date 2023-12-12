@@ -2,25 +2,28 @@ import argparse
 import torch
 import os
 
-from utility.model import UNet
+from utility.log import initiate_wandb
+from model import UNet
 from utility.preprocess import relocate, create_csv, pad_dataset
 from test import test
 from train import train
+from train_until import train_until
 from utility.main import arg_as_list, customize_seed
 
 
 def main(args):
     customize_seed(args.seed)
+    initiate_wandb(args)
 
     if args.preprocess:
-        # Relocate images based on txt files
+        ## TODO: relocate images based on txt files
         relocate(args)
 
-        # Dicom files into one folder
+        ## TODO: dicom files into one folder
         create_csv(args)
 
-        # Pad dicom files + change txt to csv
-        # Resize coordinate values in csv that fits to 512
+        ## TODO: pad dicom files + change txt to csv
+        ## TODO: resize values in csv that fits to 512
         pad_dataset(args)
 
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -28,13 +31,18 @@ def main(args):
     model = UNet(args,  DEVICE)
 
     # train model
-    if not args.test:
-        train(args, model, DEVICE)
+    if args.train:
+        if args.train_until:
+            best_model_state= train_until(args, model, DEVICE)
+        else:
+            best_model_state = train(args, model, DEVICE)
     
     if args.test:
         ## Test Model
         if os.path.exists(f'./results/{args.wandb_name}/best.pth'):
             model.load_state_dict(torch.load(f'./results/{args.wandb_name}/best.pth')['state_dict'])
+        else:
+            model.load_state_dict(best_model_state)
         test(args, model, DEVICE)
 
 
@@ -44,11 +52,18 @@ if __name__ == '__main__':
     ## boolean arguments
     parser.add_argument('--preprocess', action='store_true')
     parser.add_argument('--no_visualization', action='store_true', help='whether to save image or not')
+    parser.add_argument('--train', action='store_true')
     parser.add_argument('--test', action='store_true')
+    parser.add_argument('--geom_loss', action='store_true')
     parser.add_argument('--augmentation', action='store_true')
     parser.add_argument('--no_reweight', action='store_true')
+    parser.add_argument('--train_until', action='store_true')
 
     ## get dataset
+    parser.add_argument('--excel_path', type=str, default="./xlsx/dataset.xlsx", help='path to dataset excel file')
+
+    ## data preprocessing
+    parser.add_argument('--dicom_path', type=str, default="./data/dicom", help='path to dicom dataset')
     parser.add_argument('--csv_path', type=str, default="./data/xlsx", help='path to csv dataset')
     parser.add_argument('--image_path_all', type=str, default="./data/image/all", help='where all the images are stored')
     parser.add_argument('--image_path', type=str, default="./data/image", help='path to image dataset')
@@ -66,8 +81,10 @@ if __name__ == '__main__':
     parser.add_argument('--dilate', type=int, default=65, help='dilate iteration')
     parser.add_argument('--dilation_decrease', type=int, default=10, help='dilation decrease in progressive erosion')
     parser.add_argument('--dilation_epoch', type=int, default=50, help='dilation per epoch')
+    parser.add_argument('--connectivity', type=int, default=1)
     parser.add_argument('--image_resize', type=int, default=512, help='image resize value')
     parser.add_argument('--batch_size', type=int, default=18, help='batch size')
+    parser.add_argument('--train_threshold', type=float, default=0.8)
     
     ## hyperparameters - model
     parser.add_argument('--seed', type=int, default=2022, help='seed customization for result reproduction')
@@ -83,6 +100,13 @@ if __name__ == '__main__':
     ## hyperparameters - results
     parser.add_argument('--result_directory', type=str, default="./results", help='test label text file path')
     parser.add_argument('--threshold', type=float, default=0.5)
+
+    ## wandb
+    parser.add_argument('--wandb', action='store_true', help='whether to use wandb or not')
+    parser.add_argument('--wandb_sweep', action='store_true')
+    parser.add_argument('--wandb_project', type=str, default="hip replacement", help='wandb project name')
+    parser.add_argument('--wandb_entity', type=str, default="yehyun-suh", help='wandb entity name')
+    parser.add_argument('--wandb_name', type=str, default="baseline", help='wandb name')
 
     args = parser.parse_args()
     main(args)

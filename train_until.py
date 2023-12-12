@@ -28,7 +28,7 @@ def train_function(args, DEVICE, model, loss_fn_pixel, optimizer, train_loader):
     return total_loss
 
 
-def validate_function(args, DEVICE, model, epoch, val_loader):
+def validate_function(args, DEVICE, model, epoch, val_loader, visualize_bool):
     print("=====Starting Validation=====")
     model.eval()
 
@@ -64,7 +64,7 @@ def validate_function(args, DEVICE, model, epoch, val_loader):
             dice_score += (2 * (prediction_binary * label).sum()) / ((prediction_binary + label).sum() + 1e-8)
 
             ## visualize
-            if epoch % args.dilation_epoch == 0 or epoch % args.dilation_epoch == (args.dilation_epoch-1) or epoch % 50 == 0:
+            if epoch % args.dilation_epoch == 0 or epoch % args.dilation_epoch == (args.dilation_epoch-1) or epoch % 50 == 0 or visualize_bool:
                 if not args.no_visualization:
                     visualize(
                         args, idx, image_path, image_name, label, label_list, epoch, extracted_pixels_list, prediction, prediction_binary,
@@ -98,24 +98,31 @@ def validate_function(args, DEVICE, model, epoch, val_loader):
         return dice, total_rmse_mean, rmse_list, rmse_mean_by_label, 0
 
 
-def train(args, model, DEVICE):
+def train_until(args, model, DEVICE):
     best_loss, best_rmse_mean, best_angle_diff = np.inf, np.inf, np.inf
-    best_model = None  # TODO
+    best_model = None
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
     
-    for epoch in range(args.epochs):
+    epoch = 0
+    terminate_epoch = 0
+    while terminate_epoch != 350:
+        visualize_bool = False
         print(f"\nRunning Epoch # {epoch}")
         
         if epoch % args.dilation_epoch == 0:
-            args, loss_fn, train_loader, val_loader = set_parameters(
-                args, model, epoch, DEVICE
-            )
+            args, loss_fn, train_loader, val_loader = set_parameters(args, model, epoch, DEVICE)
+        else:
+            if dice > args.train_threshold:
+                visualize_bool = True
+                args.train_threshold -= 0.05
+                args, loss_fn, train_loader, val_loader = set_parameters(args, model, epoch, DEVICE)
+                terminate_epoch = 0
 
         loss = train_function(
             args, DEVICE, model, loss_fn, optimizer, train_loader
         )
         dice, rmse_mean, rmse_list, rmse_mean_by_label, angle_value = validate_function(
-            args, DEVICE, model, epoch, val_loader
+            args, DEVICE, model, epoch, val_loader, visualize_bool
         )
 
         print("Average Train Loss: ", loss/len(train_loader))
@@ -152,6 +159,9 @@ def train(args, model, DEVICE):
                 loss, dice, rmse_mean, best_rmse_mean, rmse_mean_by_label,
                 len(train_loader), len(val_loader)
             )
+        epoch += 1
+        terminate_epoch += 1
+
     log_terminal(args, 'best_rmse', best_rmse_list)
 
     return best_model

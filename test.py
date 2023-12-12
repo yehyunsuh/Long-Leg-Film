@@ -7,7 +7,7 @@ import numpy as np
 
 from dataset import load_data
 from tqdm import tqdm
-from utility.log import log_terminal
+from utility.log import log_terminal, log_test_results
 from utility.train import rmse, geom_element, angle_element
 from utility.visualization import visualize
 
@@ -53,10 +53,11 @@ def test(args, model, DEVICE):
 
             ## make predictions to be 0. or 1.
             prediction_binary = (prediction > 0.5).float()
+            dice_score += (2 * (prediction_binary * label).sum()) / ((prediction_binary + label).sum() + 1e-8)
 
             ## visualize
             visualize(
-                args, idx, image_path, image_name, label_list, None, extracted_pixels_list, prediction, prediction_binary,
+                args, idx, image_path, image_name, label, label_list, None, extracted_pixels_list, prediction, prediction_binary,
                 predict_spatial_mean, label_spatial_mean, None, 'test'
             )
         end = time.time()
@@ -64,8 +65,24 @@ def test(args, model, DEVICE):
     print("=====Testing Process Done=====")
     print(f"{end - start:.5f} seconds for {len(test_loader)} images")
 
-    log_terminal(args, "test_prediction", extracted_pixels_list)
-    log_terminal(args, "test_label", label_total)
+    dice = dice_score/len(test_loader)
+    rmse_mean_by_label = []
+    for i in range(len(rmse_list)):
+        tmp_sum, count = 0, 0
+        for j in range(len(rmse_list[i])):
+            if rmse_list[i][j] != -1:
+               tmp_sum += rmse_list[i][j]
+               count += 1
+        rmse_mean_by_label.append(tmp_sum/count)
+
+    total_rmse_mean = sum(rmse_mean_by_label)/len(rmse_mean_by_label)
+
+    if args.wandb and args.label_for_angle == []:
+        log_test_results(dice, total_rmse_mean, rmse_mean_by_label)
+
+    # log_terminal(args, "test_prediction", extracted_pixels_list)
+    # log_terminal(args, "test_label", label_total)
+    log_terminal(args, "test_rmse", rmse_list)
 
     row_name = ["image_name", "number_of_labels"]
     for i in range(args.output_channel):
