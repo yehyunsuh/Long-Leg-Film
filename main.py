@@ -89,7 +89,7 @@ if __name__ == '__main__':
     ## hyperparameters - model
     parser.add_argument('--seed', type=int, default=2022, help='seed customization for result reproduction')
     parser.add_argument('--input_channel', type=int, default=3, help='input channel size for UNet')
-    parser.add_argument('--output_channel', type=int, default=20, help='output channel size for UNet')
+    parser.add_argument('--output_channel', type=int, default=11, help='output channel size for UNet')
     parser.add_argument('--encoder_depth', type=int, default=5, help='model depth for UNet')
     parser.add_argument("--decoder_channel", type=arg_as_list, default=[256,128,64,32,16], help='model decoder channels')
     parser.add_argument('--lr', '--learning_rate', type=float, default=1e-4, help='learning rate')
@@ -104,7 +104,7 @@ if __name__ == '__main__':
     ## wandb
     parser.add_argument('--wandb', action='store_true', help='whether to use wandb or not')
     parser.add_argument('--wandb_sweep', action='store_true')
-    parser.add_argument('--wandb_project', type=str, default="hip replacement", help='wandb project name')
+    parser.add_argument('--wandb_project', type=str, default="Long Leg Film", help='wandb project name')
     parser.add_argument('--wandb_entity', type=str, default="yehyun-suh", help='wandb entity name')
     parser.add_argument('--wandb_name', type=str, default="baseline", help='wandb name')
 

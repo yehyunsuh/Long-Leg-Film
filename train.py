@@ -68,7 +68,7 @@ def validate_function(args, DEVICE, model, epoch, val_loader):
                 if not args.no_visualization:
                     visualize(
                         args, idx, image_path, image_name, label, label_list, epoch, extracted_pixels_list, prediction, prediction_binary,
-                        predict_spatial_mean, label_spatial_mean, None, 'train'
+                        predict_spatial_mean, label_spatial_mean, predict_angle + label_angle, 'train'
                     )
     dice = dice_score/len(val_loader)
 

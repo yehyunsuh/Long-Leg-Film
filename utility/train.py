@@ -178,23 +178,44 @@ def rmse(args, prediction, label_list, idx, rmse_list):
     return rmse_list, extract_pixel(args, prediction)
 
 
+def intersection_line_to_line(x1, y1, x2, y2, x3, y3, x4, y4):
+    if x2-x1 == 0: m1 = (y2-y1)/1e-8
+    else:          m1 = (y2-y1)/(x2-x1)
+    if x4-x3 == 0: m2 = (y4-y3)/1e-8
+    else:          m2 = (y4-y3)/(x4-x3)
+
+    if m1 == m2:
+        # print("두 선이 평행합니다")
+        return None, None
+    else:
+        x_intersect = (m1*x1-y1-m2*x3+y3)/(m1-m2)
+        y_intersect = m1*(x_intersect-x1)+y1
+        return x_intersect, y_intersect
+
+
 def calculate_angle(coordinates):
     y1, x1 = coordinates[0], coordinates[1]
     y2, x2 = coordinates[2], coordinates[3]
     y3, x3 = coordinates[4], coordinates[5]
+    y4, x4 = coordinates[6], coordinates[7]    
+    x5, y5 = intersection_line_to_line(x1, y1, x2, y2, x3, y3, x4, y4)
 
-    numerator = y3 - y2
-    denominator = x3 - x2
+    if x5 == None and y5 == None:
+        return 179.9
+
+    numerator = y3 - y5
+    denominator = x3 - x5
     if denominator == 0:
         denominator = 1e-8
     theta1 = math.degrees(math.atan(numerator/denominator))
 
-    numerator = y1 - y2
-    denominator = x1 - x2
+    numerator = y1 - y5
+    denominator = x1 - x5
     if denominator == 0:
         denominator = 1e-8
     theta2 = math.degrees(math.atan(numerator/denominator))
     theta = abs(theta2 - theta1)
+    # print(x5, y5, theta1, theta2, theta)
 
     if theta > 90:
         return 180 - theta
