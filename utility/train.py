@@ -139,8 +139,9 @@ def set_parameters(args, model, epoch, DEVICE):
         print(f"Current model dice score threshold is {args.train_threshold}")
 
     loss_fn_pixel = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([weight], device=DEVICE))
+    loss_fn_angle = nn.MSELoss()
     
-    return args, loss_fn_pixel, train_loader, val_loader
+    return args, loss_fn_pixel, loss_fn_angle, train_loader, val_loader
 
 
 def extract_pixel(args, prediction): 
@@ -197,26 +198,41 @@ def calculate_angle(coordinates):
     y1, x1 = coordinates[0], coordinates[1]
     y2, x2 = coordinates[2], coordinates[3]
     y3, x3 = coordinates[4], coordinates[5]
-    y4, x4 = coordinates[6], coordinates[7]    
+    y4, x4 = coordinates[6], coordinates[7]
     x5, y5 = intersection_line_to_line(x1, y1, x2, y2, x3, y3, x4, y4)
 
     if x5 == None and y5 == None:
         return 179.9
+    
+    if x3 == int(x5) and y3 == int(y5):
+        numerator = y4 - y5
+        denominator = x4 - x5
+        if denominator == 0:
+            denominator = 1e-8
+        theta1 = math.degrees(math.atan(numerator/denominator))
 
-    numerator = y3 - y5
-    denominator = x3 - x5
-    if denominator == 0:
-        denominator = 1e-8
-    theta1 = math.degrees(math.atan(numerator/denominator))
+    else:
+        numerator = y3 - y5
+        denominator = x3 - x5
+        if denominator == 0:
+            denominator = 1e-8
+        theta1 = math.degrees(math.atan(numerator/denominator))
 
-    numerator = y1 - y5
-    denominator = x1 - x5
-    if denominator == 0:
-        denominator = 1e-8
-    theta2 = math.degrees(math.atan(numerator/denominator))
+    if x1 == int(x5) and y1 == int(y5):
+        numerator = y2 - y5
+        denominator = x2 - x5
+        if denominator == 0:
+            denominator = 1e-8
+        theta2 = math.degrees(math.atan(numerator/denominator))
+    
+    else:
+        numerator = y1 - y5
+        denominator = x1 - x5
+        if denominator == 0:
+            denominator = 1e-8
+        theta2 = math.degrees(math.atan(numerator/denominator))
+    
     theta = abs(theta2 - theta1)
-    # print(x5, y5, theta1, theta2, theta)
-
     if theta > 90:
         return 180 - theta
     else:
@@ -238,25 +254,62 @@ def geom_element(prediction_sigmoid, label):
     return predict_spatial_mean, label_spatial_mean
 
 
-def angle_element(args, prediction, label_list, DEVICE):
-    index_list = extract_pixel(args, prediction)
-    label_sorted_list = []
-    for i in range(len(label_list[0])):
-        tmp_list = []
-        for j in range(0,len(label_list),2):
-            tmp_list.append([label_list[j][i].item(), label_list[j+1][i].item()])
-        label_sorted_list.append(tmp_list)
+# def angle_element(args, prediction, label_list, DEVICE):
+#     index_list = extract_pixel(args, prediction)
+#     label_sorted_list = []
+#     for i in range(len(label_list[0])):
+#         tmp_list = []
+#         for j in range(0,len(label_list),2):
+#             tmp_list.append([label_list[j][i].item(), label_list[j+1][i].item()])
+#         label_sorted_list.append(tmp_list)
 
-    angle_preds, angle_label = [], []
-    for i in range(len(index_list)):
-        for j in range(len(args.label_for_angle)):
-            coord_preds, coord_label = [], []
-            for k in range(len(args.label_for_angle[j])):
-                coord_preds.append(index_list[i][args.label_for_angle[j][k]][0])
-                coord_preds.append(index_list[i][args.label_for_angle[j][k]][1])
-                coord_label.append(label_sorted_list[i][args.label_for_angle[j][k]][0])
-                coord_label.append(label_sorted_list[i][args.label_for_angle[j][k]][1])
-            angle_preds.append(calculate_angle(coord_preds))
-            angle_label.append(calculate_angle(coord_label))
+#     angle_preds, angle_label = [], []
+#     for i in range(len(index_list)):
+#         for j in range(len(args.label_for_angle)):
+#             coord_preds, coord_label = [], []
+#             for k in range(len(args.label_for_angle[j])):
+#                 coord_preds.append(index_list[i][args.label_for_angle[j][k]][0])
+#                 coord_preds.append(index_list[i][args.label_for_angle[j][k]][1])
+#                 coord_label.append(label_sorted_list[i][args.label_for_angle[j][k]][0])
+#                 coord_label.append(label_sorted_list[i][args.label_for_angle[j][k]][1])
+#             angle_preds.append(calculate_angle(coord_preds))
+#             angle_label.append(calculate_angle(coord_label))
 
-    return angle_preds, angle_label
+#     return angle_preds, angle_label
+
+
+def angle_element(args, prediction, label_list, data_type, DEVICE):
+    if data_type == 'train':
+        index_list = extract_pixel(args, prediction)
+        label_sorted_list = []
+        for i in range(len(label_list[0])):
+            tmp_list = []
+            for j in range(0,len(label_list),2):
+                tmp_list.append([label_list[j][i].item(), label_list[j+1][i].item()])
+            label_sorted_list.append(tmp_list)
+
+        angle_preds, angle_label = [], []
+        for i in range(len(index_list)):
+            for j in range(len(args.label_for_angle)):
+                coord_preds, coord_label = [], []
+                for k in range(len(args.label_for_angle[j])):
+                    coord_preds.append(index_list[i][args.label_for_angle[j][k]][0])
+                    coord_preds.append(index_list[i][args.label_for_angle[j][k]][1])
+                    coord_label.append(label_sorted_list[i][args.label_for_angle[j][k]][0])
+                    coord_label.append(label_sorted_list[i][args.label_for_angle[j][k]][1])
+                angle_preds.append(calculate_angle(coord_preds))
+                angle_label.append(calculate_angle(coord_label))
+
+        return angle_preds, angle_label
+
+    else:
+        index_list = extract_pixel(args, prediction)
+        angle_preds = []
+        for i in range(len(index_list)):
+            for j in range(len(args.label_for_angle)):
+                coord_preds = []
+                for k in range(len(args.label_for_angle[j])):
+                    coord_preds.append(index_list[i][args.label_for_angle[j][k]][0])
+                    coord_preds.append(index_list[i][args.label_for_angle[j][k]][1])
+                angle_preds.append(calculate_angle(coord_preds))
+        return angle_preds

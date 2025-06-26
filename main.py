@@ -8,11 +8,12 @@ from utility.preprocess import relocate, create_csv, pad_dataset
 from test import test
 from train import train
 from train_until import train_until
-from utility.main import arg_as_list, customize_seed
+from utility.main import arg_as_list, customize_seed, png_to_txt
 
 
 def main(args):
     customize_seed(args.seed)
+    png_to_txt()
     initiate_wandb(args)
 
     if args.preprocess:
@@ -33,16 +34,17 @@ def main(args):
     # train model
     if args.train:
         if args.train_until:
-            best_model_state= train_until(args, model, DEVICE)
+            checkpoint= train_until(args, model, DEVICE)
         else:
-            best_model_state = train(args, model, DEVICE)
+            checkpoint = train(args, model, DEVICE)
     
     if args.test:
         ## Test Model
         if os.path.exists(f'./results/{args.wandb_name}/best.pth'):
             model.load_state_dict(torch.load(f'./results/{args.wandb_name}/best.pth')['state_dict'])
+            
         else:
-            model.load_state_dict(best_model_state)
+            model.load_state_dict(checkpoint['state_dict'])
         test(args, model, DEVICE)
 
 
@@ -94,8 +96,9 @@ if __name__ == '__main__':
     parser.add_argument("--decoder_channel", type=arg_as_list, default=[256,128,64,32,16], help='model decoder channels')
     parser.add_argument('--lr', '--learning_rate', type=float, default=1e-4, help='learning rate')
     parser.add_argument('--epochs', type=int, default=350, help='number of epochs')
-    parser.add_argument('--pixel_loss_weight', type=float, default=1)
+    parser.add_argument('--angle_loss_weight', type=float, default=0)
     parser.add_argument("--label_for_angle", type=arg_as_list, default=[])
+    
 
     ## hyperparameters - results
     parser.add_argument('--result_directory', type=str, default="./results", help='test label text file path')

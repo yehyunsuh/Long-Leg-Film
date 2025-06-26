@@ -26,6 +26,10 @@ class CustomDataset(Dataset):
         image_path = f'{self.args.image_padded_path}/{self.data_type}/{image_name}'
         image = np.array(Image.open(image_path).convert("RGB"))
 
+        # Case: No labels for test dataset
+        if self.data_type == 'test':
+            return self.transform(image=image)["image"], image_path, image_name
+        
         label_list, masks = [0] * (self.args.output_channel*2), []
         for i in range(self.args.output_channel):
             y = int(round(self.df[f'label_{i}_y'][idx]))

@@ -1,3 +1,7 @@
 data
 results
 __pycache__
+*.png
+wandb
+*.sh
+*.out

@@ -73,35 +73,11 @@ def text_to_csv(args, annotation_file, data_type):
                     one_line_list = [image_name, num_of_labels]
                     for i in range(num_of_labels):
                         y = int(line.strip().split(',')[(2*i)+2])
-                        x = int(line.strip().split(',')[(2*i)+3])
-
-                        if y < 30 and x < 30:
-                            one_line_list.append(0) 
-                            one_line_list.append(0)
-                        else:
-                            one_line_list.append(y)
-                            one_line_list.append(x)
-                label_list.append(one_line_list)
-
-        row_name = ["image_name","number_of_labels"]
-        for i in range(num_of_labels):
-            row_name.append(f'label_{i}_y')
-            row_name.append(f'label_{i}_x')
-
-    else:
-        csv_path = args.test_csv
-        with open(annotation_file, 'r') as f:
-            for line in f:
-                image_name = line.strip().split(',')[0]
-                num_of_labels = int(line.strip().split(',')[1])
-
-                if args.output_channel != num_of_labels:
-                    print(f'File {image_name} cannot be converted to csv since it has different number of labels {num_of_labels}')
-                else:
-                    one_line_list = [image_name, num_of_labels]
-                    for i in range(num_of_labels):
-                        y = int(line.strip().split(',')[(2*i)+2])
-                        x = int(line.strip().split(',')[(2*i)+3])
+                        try:
+                            x = int(line.strip().split(',')[(2*i)+3])
+                        except:
+                            print(line)
+                            exit()
 
                         if y < 30 and x < 30:
                             one_line_list.append(0) 
@@ -121,10 +97,38 @@ def text_to_csv(args, annotation_file, data_type):
     #     with open(annotation_file, 'r') as f:
     #         for line in f:
     #             image_name = line.strip().split(',')[0]
-    #             one_line_list = [image_name]
+    #             num_of_labels = int(line.strip().split(',')[1])
+
+    #             if args.output_channel != num_of_labels:
+    #                 print(f'File {image_name} cannot be converted to csv since it has different number of labels {num_of_labels}')
+    #             else:
+    #                 one_line_list = [image_name, num_of_labels]
+    #                 for i in range(num_of_labels):
+    #                     y = int(line.strip().split(',')[(2*i)+2])
+    #                     x = int(line.strip().split(',')[(2*i)+3])
+
+    #                     if y < 30 and x < 30:
+    #                         one_line_list.append(0) 
+    #                         one_line_list.append(0)
+    #                     else:
+    #                         one_line_list.append(y)
+    #                         one_line_list.append(x)
     #             label_list.append(one_line_list)
 
-        # row_name = ["image_name"]
+    #     row_name = ["image_name","number_of_labels"]
+    #     for i in range(num_of_labels):
+    #         row_name.append(f'label_{i}_y')
+    #         row_name.append(f'label_{i}_x')
+
+    else:
+        csv_path = args.test_csv
+        with open(annotation_file, 'r') as f:
+            for line in f:
+                image_name = line.strip().split(',')[0]
+                one_line_list = [image_name]
+                label_list.append(one_line_list)
+
+        row_name = ["image_name"]
 
     with open(csv_path, 'w', newline='') as f:
         write = csv.writer(f)
@@ -141,7 +145,11 @@ def pad(args, df, data_type):
         image_name = image_path.split('/')[-1]
         image_array = cv2.imread(image_path)
         fill = abs(image_array.shape[0] - image_array.shape[1])
-        row = df.loc[df['image_name'] == image_name].values.tolist()[0]
+        try:
+            row = df.loc[df['image_name'] == image_name].values.tolist()[0]
+        except:
+            print(image_path)
+            exit()
 
         ## when height > width
         if image_array.shape[0] > image_array.shape[1]:
@@ -159,12 +167,18 @@ def pad(args, df, data_type):
                 padded_array[i] = np.concatenate((tmp, right), axis=0)
             
             ## pad & resize values in csv
-            # if data_type == 'train':
-            for i in range(row[1]):
-                if row[2*i+2] != 0 and row[2*i+3] != 0:
-                    row[2*i+3] = row[2*i+3] + left.shape[0]
-                    row[2*i+2] = row[2*i+2] * (args.image_resize/padded_array.shape[0])
-                    row[2*i+3] = row[2*i+3] * (args.image_resize/padded_array.shape[0])
+            if data_type == 'train':
+                for i in range(row[1]):
+                    if row[2*i+2] != 0 and row[2*i+3] != 0:
+                        row[2*i+3] = row[2*i+3] + left.shape[0]
+                        row[2*i+2] = row[2*i+2] * (args.image_resize/padded_array.shape[0])
+                        row[2*i+3] = row[2*i+3] * (args.image_resize/padded_array.shape[0])
+
+            # for i in range(row[1]):
+            #     if row[2*i+2] != 0 and row[2*i+3] != 0:
+            #         row[2*i+3] = row[2*i+3] + left.shape[0]
+            #         row[2*i+2] = row[2*i+2] * (args.image_resize/padded_array.shape[0])
+            #         row[2*i+3] = row[2*i+3] * (args.image_resize/padded_array.shape[0])
 
         ## when height < width
         elif image_array.shape[0] < image_array.shape[1]:
@@ -180,12 +194,18 @@ def pad(args, df, data_type):
             padded_array = np.vstack([tmp, low])
 
             ## pad & resize values in csv
-            # if data_type == 'train':
-            for i in range(row[1]):
-                if row[2*i+2] != 0 and row[2*i+3] != 0:
-                    row[2*i+2] = row[2*i+2] + high.shape[0]
-                    row[2*i+2] = row[2*i+2] * (args.image_resize/padded_array.shape[0])
-                    row[2*i+3] = row[2*i+3] * (args.image_resize/padded_array.shape[0])
+            if data_type == 'train':
+                for i in range(row[1]):
+                    if row[2*i+2] != 0 and row[2*i+3] != 0:
+                        row[2*i+2] = row[2*i+2] + high.shape[0]
+                        row[2*i+2] = row[2*i+2] * (args.image_resize/padded_array.shape[0])
+                        row[2*i+3] = row[2*i+3] * (args.image_resize/padded_array.shape[0])
+            
+            # for i in range(row[1]):
+            #     if row[2*i+2] != 0 and row[2*i+3] != 0:
+            #         row[2*i+2] = row[2*i+2] + high.shape[0]
+            #         row[2*i+2] = row[2*i+2] * (args.image_resize/padded_array.shape[0])
+            #         row[2*i+3] = row[2*i+3] * (args.image_resize/padded_array.shape[0])
         
         ## when height == width
         else: 
@@ -195,7 +215,12 @@ def pad(args, df, data_type):
             padded_array = image_array[:]
 
             ## resize values in csv
-            # if data_type == 'train':
+            if data_type == 'train':
+                for i in range(row[1]):
+                    if row[2*i+2] != 0 and row[2*i+3] != 0:
+                        row[2*i+2] = row[2*i+2] * (args.image_resize/padded_array.shape[0])
+                        row[2*i+3] = row[2*i+3] * (args.image_resize/padded_array.shape[0])
+            
             for i in range(row[1]):
                 if row[2*i+2] != 0 and row[2*i+3] != 0:
                     row[2*i+2] = row[2*i+2] * (args.image_resize/padded_array.shape[0])
